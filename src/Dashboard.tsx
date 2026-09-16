@@ -1,9 +1,12 @@
+import { useEffect, useState } from "react";
 import { signOut } from "firebase/auth";
 import { auth } from "./firebase";
+import { fetchStations, type Station } from "./stationService";
 import "./App.css";
 
-const stations = [
+const demoStations: Station[] = [
   {
+    id: "demo-maitri",
     name: "Maitri Station",
     location: "Queen Maud Land",
     status: "Operational",
@@ -12,6 +15,7 @@ const stations = [
     alert: "No active alerts",
   },
   {
+    id: "demo-bharati",
     name: "Bharati Station",
     location: "Larsemann Hills",
     status: "Attention",
@@ -20,6 +24,7 @@ const stations = [
     alert: "Fuel level warning",
   },
   {
+    id: "demo-dakshin",
     name: "Dakshin Gangotri",
     location: "Coastal region",
     status: "Offline",
@@ -30,6 +35,36 @@ const stations = [
 ];
 
 function Dashboard() {
+  const [stations, setStations] = useState<Station[]>(demoStations);
+  const [dataSource, setDataSource] = useState("Demo data");
+  const [isLoadingStations, setIsLoadingStations] = useState(true);
+
+  async function loadStations() {
+    setIsLoadingStations(true);
+
+    try {
+      const firestoreStations = await fetchStations();
+
+      if (firestoreStations.length > 0) {
+        setStations(firestoreStations);
+        setDataSource("Live Firestore data");
+      } else {
+        setStations(demoStations);
+        setDataSource("Demo data — no stations saved yet");
+      }
+    } catch (error) {
+      console.error("Could not load station data:", error);
+      setStations(demoStations);
+      setDataSource("Demo data — Firestore unavailable");
+    } finally {
+      setIsLoadingStations(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadStations();
+  }, []);
+
   async function handleSignOut() {
     await signOut(auth);
   }
@@ -45,6 +80,10 @@ function Dashboard() {
           <p className="subtitle">
             Monitor station safety, resources, weather, and alerts.
           </p>
+
+          <small style={{ color: "#718695" }}>
+            {isLoadingStations ? "Loading station data..." : dataSource}
+          </small>
         </div>
 
         <div
@@ -80,8 +119,8 @@ function Dashboard() {
       <section className="summary-grid">
         <div className="summary-card">
           <span>Active stations</span>
-          <strong>3</strong>
-          <small>Across Antarctic operations</small>
+          <strong>{stations.length}</strong>
+          <small>Stations currently configured</small>
         </div>
 
         <div className="summary-card">
@@ -97,9 +136,9 @@ function Dashboard() {
         </div>
 
         <div className="summary-card">
-          <span>Last synchronization</span>
-          <strong>12 min</strong>
-          <small>Most recent station update</small>
+          <span>Data source</span>
+          <strong>{dataSource.startsWith("Live") ? "Live" : "Demo"}</strong>
+          <small>Current dashboard source</small>
         </div>
       </section>
 
@@ -110,14 +149,19 @@ function Dashboard() {
             <h2>Research stations</h2>
           </div>
 
-          <button className="secondary-button" type="button">
-            Refresh data
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={loadStations}
+            disabled={isLoadingStations}
+          >
+            {isLoadingStations ? "Refreshing..." : "Refresh data"}
           </button>
         </div>
 
         <div className="station-grid">
           {stations.map((station) => (
-            <article className="station-card" key={station.name}>
+            <article className="station-card" key={station.id}>
               <div className="station-card-header">
                 <div>
                   <h3>{station.name}</h3>
